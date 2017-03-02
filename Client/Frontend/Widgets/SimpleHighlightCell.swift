@@ -180,9 +180,6 @@ class SimpleHighlightCell: UITableViewCell {
         if let bookmarked = site.bookmarked, bookmarked {
             self.descriptionLabel.text = "Bookmarked"
             self.statusIcon.image = UIImage(named: "context_bookmark")
-        } else {
-            self.descriptionLabel.text = "Visited"
-            self.statusIcon.image = UIImage(named: "context_viewed")
         }
     }
 }
