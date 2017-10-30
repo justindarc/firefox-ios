@@ -2,12 +2,39 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import Shared
 import Storage
 import Sync
 import UserNotifications
 
-private let log = Logger.browserLogger
+fileprivate struct Strings {}
+
+// Sent tabs notifications. These are displayed when the app is backgrounded or the device is locked.
+extension Strings {
+    // zero tabs
+    public static let SentTab_NoTabArrivingNotification_title = NSLocalizedString("SentTab.NoTabArrivingNotification.title", value: "Firefox Sync", comment: "Title of notification received after a spurious message from FxA has been received.")
+    public static let SentTab_NoTabArrivingNotification_body =
+        NSLocalizedString("SentTab.NoTabArrivingNotification.body", value: "Tap to begin", comment: "Body of notification received after a spurious message from FxA has been received.")
+
+    // one or more tabs
+    public static let SentTab_TabArrivingNotification_NoDevice_title = NSLocalizedString("SentTab_TabArrivingNotification_NoDevice_title", value: "Tab received", comment: "Title of notification shown when the device is sent one or more tabs from an unnamed device.")
+    public static let SentTab_TabArrivingNotification_NoDevice_body = NSLocalizedString("SentTab_TabArrivingNotification_NoDevice_body", value: "New tab arrived from another device.", comment: "Body of notification shown when the device is sent one or more tabs from an unnamed device.")
+    public static let SentTab_TabArrivingNotification_WithDevice_title = NSLocalizedString("SentTab_TabArrivingNotification_WithDevice_title", value: "Tab received from %@", comment: "Title of notification shown when the device is sent one or more tabs from the named device. %@ is the placeholder for the device name. This device name will be localized by that device.")
+    public static let SentTab_TabArrivingNotification_WithDevice_body = NSLocalizedString("SentTab_TabArrivingNotification_WithDevice_body", value: "New tab arrived in %@", comment: "Body of notification shown when the device is sent one or more tabs from the named device. %@ is the placeholder for the app name.")
+}
+
+// Additional messages sent via Push from FxA
+extension Strings {
+    public static let FxAPush_DeviceDisconnected_ThisDevice_title = NSLocalizedString("FxAPush_DeviceDisconnected_ThisDevice_title", value: "Sync Disconnected", comment: "Title of a notification displayed when this device has been disconnected by another device.")
+    public static let FxAPush_DeviceDisconnected_ThisDevice_body = NSLocalizedString("FxAPush_DeviceDisconnected_ThisDevice_body", value: "This device has been successfully disconnected from Firefox Sync.", comment: "Body of a notification displayed when this device has been disconnected from FxA by another device.")
+    public static let FxAPush_DeviceDisconnected_title = NSLocalizedString("FxAPush_DeviceDisconnected_title", value: "Sync Disconnected", comment: "Title of a notification displayed when named device has been disconnected from FxA.")
+    public static let FxAPush_DeviceDisconnected_body = NSLocalizedString("FxAPush_DeviceDisconnected_body", value: "%@ has been successfully disconnected.", comment: "Body of a notification displayed when named device has been disconnected from FxA. %@ refers to the name of the disconnected device.")
+
+    public static let FxAPush_DeviceDisconnected_UnknownDevice_body = NSLocalizedString("FxAPush_DeviceDisconnected_UnknownDevice_body", value: "A device has disconnected from Firefox Sync", comment: "Body of a notification displayed when unnamed device has been disconnected from FxA.")
+
+    public static let FxAPush_DeviceConnected_title = NSLocalizedString("FxAPush_DeviceConnected_title", value: "Sync Connected", comment: "Title of a notification displayed when another device has connected to FxA.")
+    public static let FxAPush_DeviceConnected_body = NSLocalizedString("FxAPush_DeviceConnected_body", value: "Firefox Sync has connected to %@", comment: "Title of a notification displayed when another device has connected to FxA. %@ refers to the name of the newly connected device.")
+}
+
 private let CategorySentTab = "org.mozilla.ios.SentTab.placeholder"
 
 class NotificationService: UNNotificationServiceExtension {
@@ -22,13 +49,8 @@ class NotificationService: UNNotificationServiceExtension {
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         DispatchQueue.global().async {
             let userInfo = request.content.userInfo
-            if Logger.logPII && log.isEnabledFor(level: .info) {
-                // This will be visible in the Console.app when a push notification is received.
-                NSLog("NotificationService APNS NOTIFICATION \(userInfo)")
-            }
 
             guard let content = (request.content.mutableCopy() as? UNMutableNotificationContent) else {
-                Sentry.shared.sendWithStacktrace(message: "No notification content", tag: SentryTag.notificationService)
                 return self.didFinish(PushMessage.accountVerified)
             }
 
@@ -37,7 +59,6 @@ class NotificationService: UNNotificationServiceExtension {
             }
 
             guard let profile = self.profile else {
-                Sentry.shared.send(message: "Could not initialize profile", tag: .notificationService, severity: .fatal)
                 self.didFinish(with: .noProfile)
                 return
             }
@@ -59,7 +80,6 @@ class NotificationService: UNNotificationServiceExtension {
         profile?.shutdown()
 
         guard let display = self.display else {
-            Sentry.shared.send(message: "Could not get SyncDelegate for displaying notification.", tag: .notificationService, severity: .fatal)
             return
         }
 
@@ -70,8 +90,6 @@ class NotificationService: UNNotificationServiceExtension {
         display.messageDelivered = false
         display.displayNotification(what, with: error)
         if !display.messageDelivered {
-            let string = ["message": "\(what?.messageType.rawValue ?? "nil"), error=\(error?.description ?? "nil")"]
-            Sentry.shared.send(message: "Empty notification", tag: .notificationService, extra: string)
             display.displayUnknownMessageNotification()
         }
     }
@@ -100,7 +118,6 @@ class SyncDataDisplay {
 
     func displayNotification(_ message: PushMessage? = nil, with error: PushMessageError? = nil) {
         guard let message = message, error == nil else {
-            Sentry.shared.send(message: "PushMessageError", tag: SentryTag.notificationService, description: "\(error?.description ??? "nil")")
             return displayUnknownMessageNotification()
         }
 
@@ -162,7 +179,6 @@ extension SyncDataDisplay {
         } else {
             presentNotification(title: Strings.SentTab_NoTabArrivingNotification_title, body: Strings.SentTab_NoTabArrivingNotification_body)
         }
-        Sentry.shared.sendWithStacktrace(message: "Unknown notification message", tag: SentryTag.notificationService)
     }
 }
 
@@ -196,9 +212,6 @@ extension SyncDataDisplay {
 
         let center = UNUserNotificationCenter.current()
         center.getDeliveredNotifications { notifications in
-            let extra = ["notificationCount": "\(notifications.count)"]
-            Sentry.shared.send(message: "deliveredNotification count", tag: SentryTag.notificationService, extra: extra)
-
             // Let's deal with sent-tab-notifications
             let sentTabNotifications = notifications.filter {
                 $0.request.content.categoryIdentifier == CategorySentTab
@@ -249,7 +262,9 @@ extension SyncDataDisplay {
             } else if deviceNames.count == 0 {
                 body = Strings.SentTab_TabArrivingNotification_NoDevice_body
             } else {
-                body = String(format: Strings.SentTab_TabArrivingNotification_WithDevice_body, AppInfo.displayName)
+                let bundle = Bundle(url: Bundle.main.bundleURL.deletingLastPathComponent().deletingLastPathComponent())
+                let appName = bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+                body = String(format: Strings.SentTab_TabArrivingNotification_WithDevice_body, appName ?? "Firefox")
             }
         }
 
