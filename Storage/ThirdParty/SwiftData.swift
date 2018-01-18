@@ -760,6 +760,9 @@ open class ConcreteSQLiteDBConnection: SQLiteDBConnection {
         var success = true
         
         do {
+            _ = pragma("foreign_keys = OFF", factory: IntFactory)
+            defer { _ = pragma("foreign_keys = ON", factory: IntFactory) }
+
             success = try transaction { connection -> Bool in
                 log.debug("Create or update \(self.schema.name) version \(self.schema.version) on \(Thread.current.description).")
                 

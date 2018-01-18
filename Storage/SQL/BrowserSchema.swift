@@ -128,7 +128,7 @@ private let log = Logger.syncLogger
  * We rely on SQLiteHistory having initialized the favicon table first.
  */
 open class BrowserSchema: Schema {
-    static let DefaultVersion = 35    // Bug 1406165.
+    static let DefaultVersion = 36    // Bug 1431438.
 
     public var name: String { return "BROWSER" }
     public var version: Int { return BrowserSchema.DefaultVersion }
@@ -592,6 +592,26 @@ open class BrowserSchema: Schema {
     "LEFT JOIN " +
     "\(TableFavicons) f ON f.id = b.faviconID"
 
+    fileprivate let widestFaviconsForSitesView =
+        "CREATE VIEW IF NOT EXISTS \(ViewWidestFaviconsForSites) AS " +
+            "SELECT " +
+            "\(TableFaviconSites).siteID AS siteID, " +
+            "\(TableFavicons).id AS iconID, " +
+            "\(TableFavicons).url AS iconURL, " +
+            "\(TableFavicons).date AS iconDate, " +
+            "MAX(\(TableFavicons).width) AS iconWidth " +
+            "FROM \(TableFaviconSites), \(TableFavicons) WHERE " +
+            "\(TableFaviconSites).faviconID = \(TableFavicons).id " +
+    "GROUP BY siteID "
+
+    fileprivate let historyIDsWithWidestFaviconsView =
+        "CREATE VIEW IF NOT EXISTS \(ViewHistoryIDsWithWidestFavicons) AS " +
+            "SELECT \(TableHistory).id AS id, " +
+            "iconID, iconURL, iconDate, iconWidth " +
+            "FROM \(TableHistory) " +
+            "LEFT OUTER JOIN " +
+    "\(ViewWidestFaviconsForSites) ON history.id = \(ViewWidestFaviconsForSites).siteID "
+
     fileprivate let pendingBookmarksDeletions =
     "CREATE TABLE IF NOT EXISTS \(TablePendingBookmarksDeletions) (" +
     "id TEXT PRIMARY KEY REFERENCES \(TableBookmarksBuffer)(guid) ON DELETE CASCADE" +
@@ -663,26 +683,6 @@ open class BrowserSchema: Schema {
         "UNIQUE (siteID, faviconID) " +
         ") "
 
-        let widestFavicons =
-        "CREATE VIEW IF NOT EXISTS \(ViewWidestFaviconsForSites) AS " +
-        "SELECT " +
-        "\(TableFaviconSites).siteID AS siteID, " +
-        "\(TableFavicons).id AS iconID, " +
-        "\(TableFavicons).url AS iconURL, " +
-        "\(TableFavicons).date AS iconDate, " +
-        "MAX(\(TableFavicons).width) AS iconWidth " +
-        "FROM \(TableFaviconSites), \(TableFavicons) WHERE " +
-        "\(TableFaviconSites).faviconID = \(TableFavicons).id " +
-        "GROUP BY siteID "
-
-        let historyIDsWithIcon =
-        "CREATE VIEW IF NOT EXISTS \(ViewHistoryIDsWithWidestFavicons) AS " +
-        "SELECT \(TableHistory).id AS id, " +
-        "iconID, iconURL, iconDate, iconWidth " +
-        "FROM \(TableHistory) " +
-        "LEFT OUTER JOIN " +
-        "\(ViewWidestFaviconsForSites) ON history.id = \(ViewWidestFaviconsForSites).siteID "
-
         let iconForURL =
         "CREATE VIEW IF NOT EXISTS \(ViewIconForURL) AS " +
         "SELECT history.url AS url, icons.iconID AS iconID FROM " +
@@ -722,8 +722,8 @@ open class BrowserSchema: Schema {
             bookmarksMirrorStructure,
             self.pendingBookmarksDeletions,
             faviconSites,
-            widestFavicons,
-            historyIDsWithIcon,
+            widestFaviconsForSitesView,
+            historyIDsWithWidestFaviconsView,
             iconForURL,
             pageMetadataCreate,
             pinnedTopSitesTableCreate,
@@ -1202,9 +1202,39 @@ open class BrowserSchema: Schema {
             }
         }
 
+        if from < 36 && to >= 36 {
+            // If upgrading from a DB prior to v35, the `favicons` table would
+            // have already been created with a `type` column and any views
+            // referencing it need to be re-created. We also need to re-create
+            // the `cached_top_sites` table to fix a migration error made in v35.
+            // If `from` is `0`, then we are creating the schema from scratch and
+            // don't need to worry about re-creating the views here.
+            if from > 0 {
+                let columns = ["historyID", "url", "title", "guid", "domain_id", "domain", "localVisitDate", "remoteVisitDate", "localVisitCount", "remoteVisitCount", "iconID", "iconURL", "iconDate", "iconWidth", "frecencies"]
+
+                if !self.run(db, queries: [
+                    // Re-create `cached_top_sites` without the `iconType` column.
+                    "ALTER TABLE \(TableCachedTopSites) RENAME TO  \(TableCachedTopSites)_old",
+                    topSitesTableCreate,
+                    "INSERT INTO \(TableCachedTopSites) (\(columns.joined(separator: ","))) SELECT \(columns.joined(separator: ",")) FROM \(TableCachedTopSites)_old",
+                    "DROP TABLE \(TableCachedTopSites)_old",
+                    // Drop views that still reference `favicons.type`.
+                    "DROP VIEW IF EXISTS \(ViewAwesomebarBookmarksWithIcons)",
+                    "DROP VIEW IF EXISTS \(ViewWidestFaviconsForSites)",
+                    "DROP VIEW IF EXISTS \(ViewHistoryIDsWithWidestFavicons)",
+                    // Re-create views.
+                    awesomebarBookmarksWithIconsView,
+                    widestFaviconsForSitesView,
+                    historyIDsWithWidestFaviconsView
+                    ]) {
+                    return false
+                }
+            }
+        }
+
         return true
     }
-    
+
     fileprivate func migrateFromSchemaTableIfNeeded(_ db: SQLiteDBConnection) -> Bool {
         log.info("Checking if schema table migration is needed.")
 
