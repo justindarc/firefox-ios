@@ -137,6 +137,8 @@ class Tab: NSObject {
     /// tab instance, queue it for later until we become foregrounded.
     fileprivate var alertQueue = [JSAlertInfo]()
 
+    fileprivate var nativeDragInteractionDelegate: Any?
+
     init(configuration: WKWebViewConfiguration, isPrivate: Bool = false) {
         self.configuration = configuration
         super.init()
@@ -203,7 +205,15 @@ class Tab: NSObject {
             // which allows the content appear beneath the toolbars in the BrowserViewController
             webView.scrollView.layer.masksToBounds = false
             webView.navigationDelegate = navigationDelegate
-
+            if #available(iOS 11.0, *) {
+                if let contentView = webView.scrollView.subviews.find({ String(describing: $0).starts(with: "<WKContentView:") }), let nativeDragInteraction = contentView.interactions.find({ type(of: $0) == UIDragInteraction.self }) as? UIDragInteraction {
+                    nativeDragInteractionDelegate = nativeDragInteraction.delegate
+                    let proxyDragInteraction = UIDragInteraction(delegate: self)
+                    proxyDragInteraction.allowsSimultaneousRecognitionDuringLift = nativeDragInteraction.allowsSimultaneousRecognitionDuringLift
+                    contentView.removeInteraction(nativeDragInteraction)
+                    contentView.addInteraction(proxyDragInteraction)
+                }
+            }
             restore(webView)
 
             self.webView = webView
@@ -489,6 +499,137 @@ class Tab: NSObject {
 extension Tab: TabWebViewDelegate {
     fileprivate func tabWebView(_ tabWebView: TabWebView, didSelectFindInPageForSelection selection: String) {
         tabDelegate?.tab(self, didSelectFindInPageForSelection: selection)
+    }
+}
+
+@available(iOS 11.0, *)
+extension Tab: UIDragInteractionDelegate {
+    func dragInteraction(_ interaction: UIDragInteraction, itemsForBeginning session: UIDragSession) -> [UIDragItem] {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return []
+        }
+
+        return nativeDragInteractionDelegate.dragInteraction(interaction, itemsForBeginning: session)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, itemsForAddingTo session: UIDragSession, withTouchAt point: CGPoint) -> [UIDragItem] {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return []
+        }
+
+        return nativeDragInteractionDelegate.dragInteraction?(interaction, itemsForAddingTo: session, withTouchAt: point) ?? []
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, sessionForAddingItems sessions: [UIDragSession], withTouchAt point: CGPoint) -> UIDragSession? {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return nil
+        }
+
+        return nativeDragInteractionDelegate.dragInteraction?(interaction, sessionForAddingItems: sessions, withTouchAt: point)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, willAnimateLiftWith animator: UIDragAnimating, session: UIDragSession) {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return
+        }
+
+        nativeDragInteractionDelegate.dragInteraction?(interaction, willAnimateLiftWith: animator, session: session)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, item: UIDragItem, willAnimateCancelWith animator: UIDragAnimating) {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return
+        }
+
+        nativeDragInteractionDelegate.dragInteraction?(interaction, item: item, willAnimateCancelWith: animator)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, sessionWillBegin session: UIDragSession) {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return
+        }
+
+        nativeDragInteractionDelegate.dragInteraction?(interaction, sessionWillBegin: session)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, session: UIDragSession, willAdd items: [UIDragItem], for addingInteraction: UIDragInteraction) {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return
+        }
+
+        nativeDragInteractionDelegate.dragInteraction?(interaction, session: session, willAdd: items, for: addingInteraction)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, sessionDidMove session: UIDragSession) {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return
+        }
+
+        nativeDragInteractionDelegate.dragInteraction?(interaction, sessionDidMove: session)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, session: UIDragSession, willEndWith operation: UIDropOperation) {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return
+        }
+
+        nativeDragInteractionDelegate.dragInteraction?(interaction, session: session, willEndWith: operation)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, session: UIDragSession, didEndWith operation: UIDropOperation) {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return
+        }
+
+        nativeDragInteractionDelegate.dragInteraction?(interaction, session: session, didEndWith: operation)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, sessionDidTransferItems session: UIDragSession) {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return
+        }
+
+        nativeDragInteractionDelegate.dragInteraction?(interaction, sessionDidTransferItems: session)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, previewForLifting item: UIDragItem, session: UIDragSession) -> UITargetedDragPreview? {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return nil
+        }
+
+        return nativeDragInteractionDelegate.dragInteraction?(interaction, previewForLifting: item, session: session)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, previewForCancelling item: UIDragItem, withDefault defaultPreview: UITargetedDragPreview) -> UITargetedDragPreview? {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return nil
+        }
+
+        return nativeDragInteractionDelegate.dragInteraction?(interaction, previewForCancelling: item, withDefault: defaultPreview)
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, prefersFullSizePreviewsFor session: UIDragSession) -> Bool {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return false
+        }
+
+        return nativeDragInteractionDelegate.dragInteraction?(interaction, prefersFullSizePreviewsFor: session) ?? false
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, sessionIsRestrictedToDraggingApplication session: UIDragSession) -> Bool {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return false
+        }
+
+        return nativeDragInteractionDelegate.dragInteraction?(interaction, sessionIsRestrictedToDraggingApplication: session) ?? false
+    }
+
+    func dragInteraction(_ interaction: UIDragInteraction, sessionAllowsMoveOperation session: UIDragSession) -> Bool {
+        guard let nativeDragInteractionDelegate = self.nativeDragInteractionDelegate as? UIDragInteractionDelegate else {
+            return true
+        }
+
+        return nativeDragInteractionDelegate.dragInteraction?(interaction, sessionAllowsMoveOperation: session) ?? true
     }
 }
 
