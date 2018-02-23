@@ -127,6 +127,10 @@ class TopTabsViewController: UIViewController {
         if #available(iOS 11.0, *) {
             collectionView.dragDelegate = self
             collectionView.dropDelegate = self
+
+            let newTabDropInteractionDelegate = NewTabDropInteractionDelegate(tabManager: tabManager)
+            let newTabDropInteraction = UIDropInteraction(delegate: newTabDropInteractionDelegate)
+            newTab.addInteraction(newTabDropInteraction)
         }
 
         let topTabFader = TopTabFader()
@@ -679,5 +683,37 @@ extension TopTabsViewController: TabManagerDelegate {
 
     func tabManagerDidRemoveAllTabs(_ tabManager: TabManager, toast: ButtonToast?) {
         self.reloadData()
+    }
+}
+
+@available(iOS 11.0, *)
+class NewTabDropInteractionDelegate: NSObject, UIDropInteractionDelegate {
+    let tabManager: TabManager
+
+    init(tabManager: TabManager) {
+        self.tabManager = tabManager
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, canHandle session: UIDropSession) -> Bool {
+        // Prevent tabs from being dragged and dropped into the address bar.
+        if let localDragSession = session.localDragSession, let item = localDragSession.items.first, let _ = item.localObject as? Tab {
+            return false
+        }
+
+        return session.canLoadObjects(ofClass: URL.self)
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, sessionDidUpdate session: UIDropSession) -> UIDropProposal {
+        return UIDropProposal(operation: .copy)
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, performDrop session: UIDropSession) {
+        _ = session.loadObjects(ofClass: URL.self) { urls in
+            guard let url = urls.first, let selectedTab = self.tabManager.selectedTab else {
+                return
+            }
+
+            self.tabManager.addTab(URLRequest(url: url), isPrivate: selectedTab.isPrivate)
+        }
     }
 }
