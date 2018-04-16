@@ -137,6 +137,8 @@ extension BrowserViewController: WKNavigationDelegate {
             } else if navigationAction.navigationType == .backForward {
                 restoreSpoofedUserAgentIfRequired(webView, newRequest: navigationAction.request)
             }
+
+            pendingRequests[url.absoluteString] = navigationAction.request
             decisionHandler(.allow)
             return
         }
@@ -152,6 +154,35 @@ extension BrowserViewController: WKNavigationDelegate {
             }
         }
         decisionHandler(.cancel)
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        var request: URLRequest?
+        if let url = navigationResponse.response.url {
+            request = pendingRequests.removeValue(forKey: url.absoluteString)
+        }
+
+        let helperForURL = OpenIn.helperForResponse(navigationResponse.response)
+        if navigationResponse.canShowMIMEType {
+            if let openInHelper = helperForURL {
+                addViewForOpenInHelper(openInHelper)
+            }
+            decisionHandler(WKNavigationResponsePolicy.allow)
+            return
+        }
+
+        guard var openInHelper = helperForURL else {
+            let error = NSError(domain: ErrorPageHelper.MozDomain, code: Int(ErrorPageHelper.MozErrorDownloadsNotEnabled), userInfo: [NSLocalizedDescriptionKey: Strings.UnableToDownloadError])
+            ErrorPageHelper().showPage(error, forUrl: navigationResponse.response.url!, inWebView: webView)
+            return decisionHandler(WKNavigationResponsePolicy.allow)
+        }
+
+        if openInHelper.openInView == nil {
+            openInHelper.openInView = navigationToolbar.menuButton
+        }
+
+        openInHelper.open(request: request)
+        decisionHandler(WKNavigationResponsePolicy.cancel)
     }
 
     func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {

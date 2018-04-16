@@ -96,6 +96,7 @@ class BrowserViewController: UIViewController {
     fileprivate var keyboardState: KeyboardState?
 
     var pendingToast: ButtonToast? // A toast that might be waiting for BVC to appear before displaying
+    var downloadToast: DownloadToast?
 
     // Tracking navigation items to record history types.
     // TODO: weak references?
@@ -107,6 +108,11 @@ class BrowserViewController: UIViewController {
     
     var topTabsViewController: TopTabsViewController?
     let topTabsContainer = UIView()
+
+    // Keep track of allowed `URLRequest`s from `webView(_:decidePolicyFor:decisionHandler:)` so
+    // that we can obtain the originating `URLRequest` when a `URLResponse` is received. This will
+    // allow us to re-trigger the `URLRequest` if the user requests a file to be downloaded.
+    var pendingRequests = [String : URLRequest]()
 
     init(profile: Profile, tabManager: TabManager) {
         self.profile = profile
@@ -1886,7 +1892,22 @@ extension BrowserViewController: TabManagerDelegate {
             buttonToast.showToast(duration: duration)
         }
     }
-    
+
+    func show(downloadToast: DownloadToast) {
+        // If BVC isnt visible hold on to this toast until viewDidAppear
+        if self.view.window == nil {
+            self.downloadToast = downloadToast
+            return
+        }
+
+        view.addSubview(downloadToast)
+        downloadToast.snp.makeConstraints { make in
+            make.left.right.equalTo(self.view)
+            make.bottom.equalTo(self.webViewContainer)
+        }
+        downloadToast.showToast()
+    }
+
     func tabManagerDidRemoveAllTabs(_ tabManager: TabManager, toast: ButtonToast?) {
         guard let toast = toast, !tabTrayController.privateMode else {
             return
@@ -2024,29 +2045,6 @@ extension BrowserViewController: WKUIDelegate {
         }
 
         return false
-    }
-
-    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-        let helperForURL = OpenIn.helperForResponse(navigationResponse.response)
-        if navigationResponse.canShowMIMEType {
-            if let openInHelper = helperForURL {
-                addViewForOpenInHelper(openInHelper)
-            }
-            decisionHandler(WKNavigationResponsePolicy.allow)
-            return
-        }
-
-        guard var openInHelper = helperForURL else {
-            let error = NSError(domain: ErrorPageHelper.MozDomain, code: Int(ErrorPageHelper.MozErrorDownloadsNotEnabled), userInfo: [NSLocalizedDescriptionKey: Strings.UnableToDownloadError])
-            ErrorPageHelper().showPage(error, forUrl: navigationResponse.response.url!, inWebView: webView)
-            return decisionHandler(WKNavigationResponsePolicy.allow)
-        }
-
-        if openInHelper.openInView == nil {
-            openInHelper.openInView = navigationToolbar.menuButton
-        }
-        openInHelper.open()
-        decisionHandler(WKNavigationResponsePolicy.cancel)
     }
 
     func webViewDidClose(_ webView: WKWebView) {

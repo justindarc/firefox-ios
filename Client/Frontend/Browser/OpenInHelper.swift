@@ -29,46 +29,45 @@ enum MimeType: String {
 protocol OpenInHelper {
     init?(response: URLResponse)
     var openInView: UIView? { get set }
-    func open()
+    func open(request: URLRequest?)
 }
 
 struct OpenIn {
-    static let helpers: [OpenInHelper.Type] = [OpenPdfInHelper.self, OpenPassBookHelper.self, ShareFileHelper.self]
+    static let helpers: [OpenInHelper.Type] = [OpenPdfInHelper.self, OpenPassBookHelper.self, DownloadHelper.self]
     
     static func helperForResponse(_ response: URLResponse) -> OpenInHelper? {
         return helpers.compactMap { $0.init(response: response) }.first
     }
 }
 
-class ShareFileHelper: NSObject, OpenInHelper {
+class DownloadHelper: OpenInHelper {
     var openInView: UIView?
 
-    fileprivate var url: URL
-    var pathExtension: String?
+    fileprivate let url: URL
+    fileprivate let filename: String
 
     required init?(response: URLResponse) {
-        guard let MIMEType = response.mimeType, !(MIMEType == MimeType.PASS.rawValue || MIMEType == MimeType.PDF.rawValue),
-            let responseURL = response.url else { return nil }
-        url = (responseURL as NSURL) as URL
-        super.init()
+        guard let mimeType = response.mimeType, !(mimeType == MimeType.PASS.rawValue || mimeType == MimeType.PDF.rawValue), let url = response.url else {
+            return nil
+        }
+
+        self.url = url
+        self.filename = response.suggestedFilename ?? "unknown"
     }
 
-    func open() {
+    func open(request: URLRequest?) {
+        guard let request = request, let appDelegate = UIApplication.shared.delegate as? AppDelegate, let browserViewController = appDelegate.browserViewController else {
+            return
+        }
+
         let alertController = UIAlertController(
-            title: Strings.OpenInDownloadHelperAlertTitle,
-            message: Strings.OpenInDownloadHelperAlertMessage,
+            title: "Download File",
+            message: "Are you sure you want to download \(filename)?",
             preferredStyle: .alert)
-        alertController.addAction( UIAlertAction(title: Strings.OpenInDownloadHelperAlertCancel, style: .cancel, handler: nil))
-        alertController.addAction(UIAlertAction(title: Strings.OpenInDownloadHelperAlertConfirm, style: .default) { (action) in
-            let objectsToShare = [self.url]
-            let activityVC = UIActivityViewController(activityItems: objectsToShare, applicationActivities: nil)
-            if let sourceView = self.openInView, let popoverController = activityVC.popoverPresentationController {
-                popoverController.sourceView = sourceView
-                popoverController.sourceRect = CGRect(origin: CGPoint(x: sourceView.bounds.midX, y: sourceView.bounds.maxY), size: .zero)
-                popoverController.permittedArrowDirections = .up
-            }
-            UIApplication.shared.keyWindow?.rootViewController?.present(activityVC, animated: true, completion: nil)
-        })
+        alertController.addAction(UIAlertAction(title: Strings.CancelString, style: .cancel))
+        alertController.addAction(UIAlertAction(title: "Download", style: .default, handler: { action in
+            browserViewController.startDownloadWithRequest(request, filename: self.filename)
+        }))
         UIApplication.shared.keyWindow?.rootViewController?.present(alertController, animated: true, completion: nil)
     }
 }
@@ -85,7 +84,7 @@ class OpenPassBookHelper: NSObject, OpenInHelper {
         super.init()
     }
 
-    func open() {
+    func open(request: URLRequest?) {
         guard let passData = try? Data(contentsOf: url) else { return }
         var error: NSError? = nil
         let pass = PKPass(data: passData, error: &error)
@@ -193,7 +192,7 @@ class OpenPdfInHelper: NSObject, OpenInHelper, UIDocumentInteractionControllerDe
         }
     }
 
-    @objc func open() {
+    @objc func open(request: URLRequest?) {
         createLocalCopyOfPDF()
         guard let _parentView = self.openInView!.superview, let docController = self.docController else { log.error("view doesn't have a superview so can't open anything"); return }
         // iBooks should be installed by default on all devices we care about, so regardless of whether or not there are other pdf-capable

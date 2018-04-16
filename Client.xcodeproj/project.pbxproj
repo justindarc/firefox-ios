@@ -393,6 +393,8 @@
 		D02818611EF056C800240CAA /* SentryIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02818601EF056C800240CAA /* SentryIntegration.swift */; };
 		D03F8EB22004014E003C2224 /* FaviconHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03F8EB12004014E003C2224 /* FaviconHandler.swift */; };
 		D03F8F23200EAC1F003C2224 /* AllFramesAtDocumentStart.js in Resources */ = {isa = PBXBuildFile; fileRef = D03F8F22200EAC1E003C2224 /* AllFramesAtDocumentStart.js */; };
+		D0625C5720864EFA0081F3B2 /* BrowserViewController+Downloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0625C5620864EFA0081F3B2 /* BrowserViewController+Downloads.swift */; };
+		D0625C6720866B7B0081F3B2 /* DownloadToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0625C6620866B7B0081F3B2 /* DownloadToast.swift */; };
 		D07696F820697F9C00FACFD8 /* ReadingListSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = D07696F720697F9C00FACFD8 /* ReadingListSchema.swift */; };
 		D076971F206AC60900FACFD8 /* ReadingList.swift in Sources */ = {isa = PBXBuildFile; fileRef = D076971E206AC60900FACFD8 /* ReadingList.swift */; };
 		D0769743206C19E900FACFD8 /* SQLiteReadingList.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0769742206C19E800FACFD8 /* SQLiteReadingList.swift */; };
@@ -1609,6 +1611,8 @@
 		D03F8F20200EABB0003C2224 /* __firefox__.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = __firefox__.js; sourceTree = "<group>"; };
 		D03F8F22200EAC1E003C2224 /* AllFramesAtDocumentStart.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = AllFramesAtDocumentStart.js; sourceTree = "<group>"; };
 		D03F8F24200EACD8003C2224 /* ContextMenu.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = ContextMenu.js; sourceTree = "<group>"; };
+		D0625C5620864EFA0081F3B2 /* BrowserViewController+Downloads.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserViewController+Downloads.swift"; sourceTree = "<group>"; };
+		D0625C6620866B7B0081F3B2 /* DownloadToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadToast.swift; sourceTree = "<group>"; };
 		D07696F720697F9C00FACFD8 /* ReadingListSchema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListSchema.swift; sourceTree = "<group>"; };
 		D076971E206AC60900FACFD8 /* ReadingList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingList.swift; sourceTree = "<group>"; };
 		D0769742206C19E800FACFD8 /* SQLiteReadingList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteReadingList.swift; sourceTree = "<group>"; };
@@ -2807,6 +2811,7 @@
 		C8F457A61F1FD75A000CB895 /* BrowserViewController */ = {
 			isa = PBXGroup;
 			children = (
+				D0625C5620864EFA0081F3B2 /* BrowserViewController+Downloads.swift */,
 				C8F457A91F1FDD9B000CB895 /* BrowserViewController+KeyCommands.swift */,
 				D0C95EF5201A55A800E4E51C /* BrowserViewController+UIDropInteractionDelegate.swift */,
 				C8F457A71F1FD75A000CB895 /* BrowserViewController+WKNavigationDelegate.swift */,
@@ -3015,6 +3020,7 @@
 				31ADB5D91E58CEC300E87909 /* ClipboardBarDisplayHandler.swift */,
 				D3BA7E0D1B0E934F00153782 /* ContextMenuHelper.swift */,
 				3BE7275C1CCFE8B60099189F /* CustomSearchHandler.swift */,
+				D0625C6620866B7B0081F3B2 /* DownloadToast.swift */,
 				0BA1E02D1B046F1E007675AF /* ErrorPageHelper.swift */,
 				D03F8EB12004014E003C2224 /* FaviconHandler.swift */,
 				D3B6923C1B9F9444004B87A4 /* FindInPageBar.swift */,
@@ -5315,6 +5321,7 @@
 				D30B101E1AA7F9C600C01CA3 /* HomePanels.swift in Sources */,
 				F84B22041A0910F600AAB793 /* AppDelegate.swift in Sources */,
 				D8C75DF3207584C400BB8AD0 /* UIImageViewAligned.m in Sources */,
+				D0625C5720864EFA0081F3B2 /* BrowserViewController+Downloads.swift in Sources */,
 				E653422D1C5944F90039DD9E /* BrowserPrompts.swift in Sources */,
 				2FDE87FE1ABB3817005317B1 /* RemoteTabsPanel.swift in Sources */,
 				39DD030D1CD53E1900BC09B3 /* HomePageHelper.swift in Sources */,
@@ -5376,6 +5383,7 @@
 				0BA1E02E1B046F1E007675AF /* ErrorPageHelper.swift in Sources */,
 				D3A9949C1A3686BD008AD1AC /* BrowserViewController.swift in Sources */,
 				59A681BDFC95A19F05E07223 /* SearchViewController.swift in Sources */,
+				D0625C6720866B7B0081F3B2 /* DownloadToast.swift in Sources */,
 				E6CF28E71CB43B7900151AB3 /* SensitiveViewController.swift in Sources */,
 				E68E7ADA1CAC207400FDCA76 /* ChangePasscodeViewController.swift in Sources */,
 				E640E85E1C73A45A00C5F072 /* PasscodeEntryViewController.swift in Sources */,
