@@ -1102,10 +1102,10 @@ open class BrowserProfile: Profile {
                 // Bundle in authState the engines the user activated/disabled since the last sync.
                 TogglableEngines.forEach { engine in
                     let stateChangedPref = "engine.\(engine).enabledStateChanged"
-                    if let _ = self.prefsForSync.boolForKey(stateChangedPref),
-                        let enabled = self.prefsForSync.boolForKey("engine.\(engine).enabled") {
+                    if let _ = self.prefsForSync.boolForKey(stateChangedPref) {
+                        let enabled = self.prefsForSync.boolForKey("engine.\(engine).enabled") ?? false
                         enginesEnablements[engine] = enabled
-                        self.prefsForSync.setObject(nil, forKey: stateChangedPref)
+                        self.prefsForSync.removeObjectForKey(stateChangedPref)
                     }
                 }
             }
