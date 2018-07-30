@@ -211,11 +211,17 @@ extension SQLiteHistory: HistoryRecommendations {
         return [(sql, nil)]
     }
 
+    func optimizeFullTextSearch() -> [(String, Args?)] {
+        let sql = "INSERT INTO \(TableHistoryFTS)(\(TableHistoryFTS)) VALUES('optimize')"
+        return [(sql, nil)]
+    }
+
     public func repopulate(invalidateTopSites shouldInvalidateTopSites: Bool, invalidateHighlights shouldInvalidateHighlights: Bool) -> Success {
         return checkIfCleanupIsNeeded(maxHistoryRows: SQLiteHistory.MaxHistoryRowCount) >>== { doCleanup in
             var queries: [(String, Args?)] = []
             if doCleanup {
                 queries.append(contentsOf: self.cleanupOldHistory(numberOfRowsToPrune: SQLiteHistory.PruneHistoryRowCount))
+                queries.append(contentsOf: self.optimizeFullTextSearch())
             }
             if shouldInvalidateTopSites {
                 queries.append(contentsOf: self.refreshTopSitesQuery())

@@ -372,6 +372,10 @@ open class BrowserSchema: Schema {
     let historyFTSRebuild =
         "INSERT INTO \(TableHistoryFTS)(\(TableHistoryFTS)) VALUES ('rebuild')"
 
+    // This query optimizes the FTS index.
+    let historyFTSOptimize =
+        "INSERT INTO \(TableHistoryFTS)(\(TableHistoryFTS)) VALUES('optimize')"
+
     let indexPageMetadataCacheKeyCreate =
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_page_metadata_cache_key_uniqueindex ON page_metadata (cache_key)"
 
@@ -1336,9 +1340,10 @@ open class BrowserSchema: Schema {
         }
 
         if from < 36 && to >= 36 {
-            // Rebuild the FTS index for the `history_fts` table.
+            // Rebuild and optimize the FTS index for the `history_fts` table.
             if !self.run(db, queries: [
                 historyFTSRebuild,
+                historyFTSOptimize,
                 ]) {
                 return false
             }
